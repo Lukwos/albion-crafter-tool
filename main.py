@@ -1,25 +1,27 @@
 import math
 import requests
-import xml.etree.ElementTree as ET
+from lxml import etree
 import csv
 import functools
 import fnmatch
 import re
+import os
 
 # https://albionfreemarket.com/articles/view/how-crafting-station-fees-are-calculated-in-albion-online
 # https://www.albioncodex.com/guides/albion-online-return-rate-explained
 
 base_url = "https://europe.albion-online-data.com"
-tree = ET.parse("ao-bin-dumps/items.xml")
+tree = etree.parse("ao-bin-dumps/items.xml")
 root = tree.getroot()
-achievements_tree = ET.parse("ao-bin-dumps/achievements.xml")
+achievements_tree = etree.parse("ao-bin-dumps/achievements.xml")
 achievements_root = achievements_tree.getroot()
 
 l10n_name_list = {}
-with open("data/l10n.csv", newline="") as csvfile:
-    reader = csv.DictReader(csvfile)
-    for row in reader:
-        l10n_name_list[row["id"]] = row["name"]
+if os.path.exists("data/l10n.csv"):
+    with open("data/l10n.csv", newline="") as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            l10n_name_list[row["id"]] = row["name"]
 
 
 def b(prefix, id):
@@ -29,31 +31,30 @@ def b(prefix, id):
     return name
 
 
-def get_categories():
-    # ids = {
-    #     el.attrib["id"]
-    #     for el in (
-    #         root.findall(".//shopcategory")
-    #         + root.findall(".//shopsubcategory")
-    #         + root.findall(".//shopsubcategory2")
-    #         + root.findall(".//shopsubcategory3")
-    #     )
-    # }
-    ids = ["potions", "hide", "leather"]
-    data = []
-    for id in ids:
-        name = b("@MARKETPLACEGUI_ROLLOUT_SHOPSUBCATEGORY", id.upper())
-        data.append((name, id))
+def parse_shop_categories(category):
+    data = [category.attrib["id"]]
+    for subcategory in category:
+        data += [
+            category.attrib["id"] + "/" + c for c in parse_shop_categories(subcategory)
+        ]
     return data
+
+
+def get_categories():
+    categories = []
+    for category in root.find(".//shopcategory"):
+        categories += parse_shop_categories(root.find(".//shopcategory"))
+    return categories
 
 
 categories = get_categories()
 
 specs = {}
-with open("data/specs.csv", newline="") as csvfile:
-    reader = csv.DictReader(csvfile)
-    for row in reader:
-        specs[row["id"]] = int(row["value"])
+if os.path.exists("data/specs.csv"):
+    with open("data/specs.csv", newline="") as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            specs[row["id"]] = int(row["value"])
 
 focus = False
 base_bonus = 18
@@ -300,16 +301,25 @@ def get_focus_bonus(item):
 
 
 def get_item_list_from_category(category, tiers=None):
+    SHOP_CATEGORIES = [
+        "shopcategory",
+        "shopsubcategory1",
+        "shopsubcategory2",
+        "shopsubcategory3",
+    ]
     if tiers is None:
         tiers = [1, 2, 3, 4, 5, 6, 7, 8]
+    category_el = category.split("/")
+    xpath = (
+        "//*["
+        + " and ".join(
+            f'@{SHOP_CATEGORIES[i]}="{c}"' for i, c in enumerate(category_el)
+        )
+        + "]"
+    )
     return {
         element.attrib["uniquename"]
-        for element in (
-            root.findall(f'.//*[@shopcategory="{category}"]')
-            + root.findall(f'.//*[@shopsubcategory1="{category}"]')
-            + root.findall(f'.//*[@shopsubcategory2="{category}"]')
-            + root.findall(f'.//*[@shopsubcategory3="{category}"]')
-        )
+        for element in tree.xpath(xpath)
         if any(element.attrib["uniquename"].startswith(f"T{t}") for t in tiers)
     }
 
@@ -338,7 +348,7 @@ def print_reports(reports):
 
 
 def generate_l10n_file():
-    l10n_tree = ET.parse("ao-bin-dumps/localization.xml")
+    l10n_tree = etree.parse("ao-bin-dumps/localization.xml")
     l10n_root = l10n_tree.getroot()
     with open("data/l10n.csv", "w", newline="") as csvfile:
         writer = csv.writer(csvfile)
@@ -414,11 +424,11 @@ def main():
 
 
 if __name__ == "__main__":
-    generate_l10n_file()
-    generate_specs_file()
+    # generate_l10n_file()
+    # generate_specs_file()
     # print(compute_item_value("T6_POTION_COOLDOWN"))
     # compute_quantity_rrr(15, 24)
     # history = get_history(["T5_POTION_MOB_RESET"])
     # print(compute_daily_sold("T5_POTION_MOB_RESET", history))
-    # main()
+    main()
     # print(compute_focus("T4_MAIN_SWORD", 1286))

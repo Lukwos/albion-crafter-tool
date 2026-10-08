@@ -1,0 +1,14 @@
+Log {
+    border: solid green;
+}
+
+#left_panel,#right_panel {
+    border: solid blue;
+    layout: grid;
+    grid-size: 2;
+    height: 30;
+}
+
+#categories {
+    column-span: 2;
+}
