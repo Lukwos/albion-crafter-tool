@@ -12,3 +12,7 @@ Log {
 #categories {
     column-span: 2;
 }
+
+Log {
+    text-wrap: wrap; 
+}

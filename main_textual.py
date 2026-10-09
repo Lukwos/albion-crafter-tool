@@ -1,28 +1,29 @@
 from textual import on
-from textual.binding import Binding
-from textual.events import Mount, Print
 from textual.app import App, ComposeResult
-from textual.containers import HorizontalGroup, Vertical, Container
+from textual.binding import Binding
+from textual.containers import Container, HorizontalGroup, Vertical
+from textual.events import Mount, Print
 from textual.suggester import SuggestFromList
 from textual.widgets import (
+    Button,
+    Checkbox,
     DataTable,
     Footer,
+    Header,
+    Input,
+    Label,
+    Log,
+    Markdown,
+    Pretty,
+    Select,
+    SelectionList,
     TabbedContent,
     TabPane,
-    Markdown,
-    Input,
-    Header,
-    SelectionList,
-    Pretty,
-    Button,
-    Log,
-    Label,
-    Checkbox,
-    Select,
     Tree,
 )
 from textual_autocomplete import AutoComplete
 from textual_autocomplete._autocomplete import DropdownItem, TargetState
+
 from main import *
 
 missing_prices = []
