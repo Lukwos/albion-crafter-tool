@@ -1,3 +1,5 @@
+import albion_data
+import aodp_data
 from textual.app import App, ComposeResult, on
 from textual.binding import Binding
 from textual.containers import Container, HorizontalGroup
@@ -19,13 +21,14 @@ from textual.widgets import (
 from textual_autocomplete import AutoComplete
 from textual_autocomplete._autocomplete import DropdownItem, TargetState
 
-import albion_data
-
 
 class AlbionCrafterToolApp(App):
     CSS_PATH = "main.tcss"
 
-    BINDINGS = [Binding("ctrl+u", "update_recipes", "Update Recipes")]
+    BINDINGS = [
+        Binding("r", "update_recipes", "Update Recipes"),
+        Binding("p", "update_prices", "Update Prices"),
+    ]
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -35,15 +38,18 @@ class AlbionCrafterToolApp(App):
                 with HorizontalGroup():
                     with Container(id="left_panel"):
                         yield Label("Have Premium")
-                        yield Checkbox()
+                        yield Checkbox(value=True)
                         yield Label("Use Focus")
                         yield Checkbox()
                         yield Label("Locations")
-                        yield Select((c, c) for c in albion_data.LOCATIONS)
+                        yield Select(
+                            ((c, c) for c in albion_data.LOCATIONS),
+                            value="Lymhurst",
+                        )
                         yield Label("Daily Sold %")
-                        yield Input()
+                        yield Input(value="20")
                         yield Label("Craft Fees")
-                        yield Input()
+                        yield Input(value="300")
                     with Container(id="right_panel"):
                         yield Label("Search Category")
                         category_input = Input(id="category_input")
@@ -74,9 +80,10 @@ class AlbionCrafterToolApp(App):
         self.query_one("#recipes_datatable", DataTable).add_columns(
             "ID", "Name", "Run", "ROI", "Profit"
         )
-        self.categories = set()
+        self.categories = set(["/weapons/crossbow/crossbow_undead"])
         self.recipes = []
-        self.useful_items = set()
+        self.all_items = set()
+        self.all_prices = []
 
     def on_print(self, event: Print):
         self.query_one(Log).write(event.text)
@@ -89,12 +96,16 @@ class AlbionCrafterToolApp(App):
 
     def _action_update_recipes(self):
         print("Update Recipes")
-        self.recipes, self.useful_items = (
-            albion_data.compute_all_recipes_from_categories(self.categories)
+        print(self.categories)
+        self.recipes, self.all_items = albion_data.compute_all_recipes_from_categories(
+            self.categories
         )
+        self.query_one("#debug_data", Pretty).update(self.all_items)
         self.update_recipe_datatable()
+
+    def _action_update_prices(self):
+        self.all_prices = aodp_data.get_prices(i["xml_id"] for i in self.all_items)
         self.update_missing_prices_datatable()
-        self.query_one("#debug_data", Pretty).update(self.recipes)
 
     def update_recipe_datatable(self):
         datatable = self.query_one("#recipes_datatable", DataTable)
@@ -105,8 +116,10 @@ class AlbionCrafterToolApp(App):
 
     def update_missing_prices_datatable(self):
         datatable = self.query_one("#missing_prices_datatable", DataTable)
-        for item in self.useful_items:
-            print(item)
+        missing_prices = aodp_data.get_missing_prices(self.all_prices)
+        for item, location in missing_prices:
+            print(item, location)
+            datatable.add_row(item, location)
 
     @on(Input.Submitted, "#category_input")
     def on_category_input_submitted(self, event: Input.Submitted):

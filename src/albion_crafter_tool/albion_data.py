@@ -13,7 +13,7 @@ def dict_factory(cursor, row):
     return {key: value for key, value in zip(fields, row)}
 
 
-con = sqlite3.connect("data.db")
+con = sqlite3.connect("data/data.db")
 con.row_factory = dict_factory
 cur = con.cursor()
 
@@ -90,7 +90,7 @@ def get_items_from_category(category_path):
 def get_recipes_from_category(category_path):
     recipes = cur.execute(
         """
-        SELECT i.name as item_name, i.xml_id as item_xml_id, r.*
+        SELECT i.name as item_name, i.xml_id as item_xml_id, i.item_value as item_value, r.*
         FROM item i
         JOIN category c ON c.id = i.category_id
         JOIN recipe r ON r.item_id = i.id
@@ -131,10 +131,12 @@ def compute_all_recipes_from_categories(categories):
             recipe["lines"] = get_recipe_lines(recipe["id"])
         all_recipes += recipes
 
-    useful_items = {(r["item_id"], r["item_xml_id"]) for r in all_recipes} | {
-        (l["item_id"], l["item_xml_id"]) for r in all_recipes for l in r["lines"]
-    }
-    return all_recipes, useful_items
+    all_items = [
+        {"id": i[0], "xml_id": i[1]}
+        for i in {(r["item_id"], r["item_xml_id"]) for r in all_recipes}
+        | {(l["item_id"], l["item_xml_id"]) for r in all_recipes for l in r["lines"]}
+    ]
+    return all_recipes, all_items
 
 
 def generate_database():
@@ -181,6 +183,7 @@ def generate_database():
             recipe_id INTEGER,
             item_id INTEGER,
             count INTEGER,
+            no_return BOOLEAN,
             FOREIGN KEY(recipe_id) REFERENCES recipe(id),
             FOREIGN KEY(item_id) REFERENCES item(id)
         )"""
@@ -254,6 +257,9 @@ def generate_database():
                         {
                             "uniquename": craftresource.attrib["uniquename"],
                             "count": craftresource.attrib["count"],
+                            "no_return": bool(
+                                craftresource.attrib.get("maxreturnamount", "1") == "0"
+                            ),
                         }
                         for craftresource in craftingrequirements.findall(
                             "./craftresource"
@@ -294,13 +300,14 @@ def generate_database():
             for line in data["lines"]:
                 cur.execute(
                     """
-                    INSERT INTO recipe_line(recipe_id, item_id, count)
-                    SELECT ?, id, ? FROM item
+                    INSERT INTO recipe_line(recipe_id, item_id, count, no_return)
+                    SELECT ?, id, ?, ? FROM item
                     WHERE item.xml_id = ?
                     """,
                     (
                         recipe_id,
                         line["count"],
+                        line["no_return"],
                         line["uniquename"],
                     ),
                 )
