@@ -17,26 +17,29 @@ con = sqlite3.connect("data/data.db")
 con.row_factory = dict_factory
 cur = con.cursor()
 
+
 # L10n
-localization_tree = etree.parse("ao-bin-dumps/localization.xml")
+def init_translation(lang="EN-US"):
+    localization_tree = etree.parse("ao-bin-dumps/localization.xml")
+    segs = localization_tree.xpath(f'//tuv[@xml:lang="{lang}"]/seg')
+    mapping = {}
+    for seg in segs:
+        tu = seg.getparent().getparent()
+        mapping[tu.attrib["tuid"]] = seg.text
+    return mapping
+
+
+L10N_MAPPING = init_translation()
 
 
 def get_translation(prefix, value):
-    seg = localization_tree.xpath(
-        f'//tu[@tuid="{prefix}_{value.upper()}"]/tuv[@xml:lang="EN-US"]/seg'
-    )
-    name = seg[0].text if seg else None
-    print(value, name)
+    key = f"{prefix}_{value.upper()}"
+    name = L10N_MAPPING.get(key, None)
     return name
 
 
 # Misc
-LOCATIONS = [
-    seg.text
-    for seg in localization_tree.xpath(
-        '//tu[starts-with(@tuid, "@JOURNAL_CITIES_")]/tuv[@xml:lang="EN-US"]/seg'
-    )
-]
+LOCATIONS = [L10N_MAPPING[k] for k in L10N_MAPPING if k.startswith("@JOURNAL_CITIES_")]
 TIERS = [("I", 1), ("II", 2), ("III", 3), ("IV", 4), ("V", 5), ("VI", 6), ("VII", 7), ("VIII", 8)]  # fmt: skip
 
 # Specs
@@ -79,7 +82,6 @@ def get_item(xml_id):
 
 
 def get_items_from_category(category_path):
-    print(f"{category_path}%")
     items = cur.execute(
         "SELECT i.* FROM item i JOIN category c ON c.id = i.category_id WHERE c.path like ?",
         (f"{category_path}%",),
@@ -125,7 +127,6 @@ def get_recipe_lines(recipe_id):
 def compute_all_recipes_from_categories(categories):
     all_recipes = []
     for category in categories:
-        print(category)
         recipes = get_recipes_from_category(category)
         for recipe in recipes:
             recipe["lines"] = get_recipe_lines(recipe["id"])

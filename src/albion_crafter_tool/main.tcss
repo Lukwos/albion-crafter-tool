@@ -6,7 +6,7 @@ Log {
     border: solid blue;
     layout: grid;
     grid-size: 2;
-    height: 30;
+    height: auto;
 }
 
 #categories {
@@ -15,4 +15,11 @@ Log {
 
 Log {
     text-wrap: wrap; 
+}
+
+#recipes_container {
+    height: 60;
+    layout: grid;
+    grid-size: 2;
+    border: solid red;
 }

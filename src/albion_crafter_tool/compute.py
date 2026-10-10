@@ -1,12 +1,24 @@
 import fnmatch
 import functools
 import math
+
 import aodp_data
+
+focus = False
+base_bonus = 18
+city_bonus = 0  # 15
+daily_bonus = 0  # 10 #20
+focus_bonus = 59 if focus else 0
+bonus = (base_bonus + city_bonus + daily_bonus + focus_bonus) / 100
+rrr = bonus / (1 + bonus)
+
+station_rate = 300
 
 
 @functools.cache
-def compute_quantity_rrr(run, unit_qty, rrr):
+def compute_quantity_rrr(run, unit_qty):
     base_qty = math.ceil(run * unit_qty * (1 - rrr))
+    return base_qty
     base_run = 0
     current_qty = base_qty
     while current_qty > unit_qty:
@@ -19,12 +31,10 @@ def compute_quantity_rrr(run, unit_qty, rrr):
     if base_run == run - 1:
         base_qty += unit_qty - current_qty
         return base_qty + unit_qty - current_qty
-    elif base_run == run:
-        return base_qty
     raise Exception("Need to be refactor")
 
 
-def compute_recipe(recipe, prices, daily_sold, station_rate, rrr):
+def compute_recipe(recipe, prices, daily_sold):
     # usage fee
     item_xml_id = recipe["item_xml_id"]
     item_value = recipe["item_value"]
@@ -37,12 +47,12 @@ def compute_recipe(recipe, prices, daily_sold, station_rate, rrr):
     # input
     resource_cost = 0
     resource_sell = 0
-    for i in recipe["line"]:
+    for i in recipe["lines"]:
         price = aodp_data.get_price(i["item_xml_id"], prices)
         cost_qty = (
             run * i["count"]
             if i["no_return"] or run == 0
-            else compute_quantity_rrr(run, i["count"], rrr)
+            else compute_quantity_rrr(run, i["count"])
         )
         sell_qty = 0 if i["no_return"] or run == 0 else math.floor(i["count"] * rrr)
         resource_cost += cost_qty * price
@@ -50,7 +60,7 @@ def compute_recipe(recipe, prices, daily_sold, station_rate, rrr):
         # TODO sell fee here per input
     # output
     output_price = aodp_data.get_price(item_xml_id, prices)
-    output_qty = recipe["amountcrafted"] * run
+    output_qty = amount_crafted * run
     # summary
     income = resource_sell + output_price * output_qty
     sales_fee = income * (2.5 + 4) / 100

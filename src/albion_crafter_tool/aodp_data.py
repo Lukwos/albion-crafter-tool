@@ -7,7 +7,6 @@ BASE_URL = "https://europe.albion-online-data.com"
 def get_prices(items, locations="Lymhurst", qualities="1"):
     if not items:
         return []
-    items = ",".join(items)
     res = requests.get(
         BASE_URL + f"/api/v2/stats/prices/{items}.json",
         params={
@@ -34,10 +33,9 @@ def get_price(item, prices, city="Lymhurst", quality=1):
 
 
 # History
-def get_history(items, cities="Lymhurst", qualities="1"):
+def get_price_history(items, cities="Lymhurst", qualities="1"):
     if not items:
         return []
-    items = ",".join(items)
     res = requests.get(
         BASE_URL + f"/api/v2/stats/history/{items}.json",
         params={"locations": cities, "qualities": qualities, "time-scale": "24"},
@@ -45,11 +43,11 @@ def get_history(items, cities="Lymhurst", qualities="1"):
     return res.json()
 
 
-def compute_daily_sold(item, history, city="Lymhurst", quality=1):
+def compute_daily_sold(item, price_history, city="Lymhurst", quality=1):
     data = next(
         (
             h["data"]
-            for h in history
+            for h in price_history
             if h["item_id"] == item
             and h["location"] == city
             and h["quality"] == quality
