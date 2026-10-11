@@ -7,7 +7,7 @@ from textual.binding import Binding
 from textual.containers import Container, HorizontalGroup
 from textual.events import Print
 from textual.widgets import (
-    Checkbox,
+    Switch,
     DataTable,
     Footer,
     Header,
@@ -41,9 +41,9 @@ class AlbionCrafterToolApp(App):
                 with HorizontalGroup():
                     with Container(id="left_panel"):
                         yield Label("Have Premium")
-                        yield Checkbox(value=True)
+                        yield Switch(value=True)
                         yield Label("Use Focus")
-                        yield Checkbox()
+                        yield Switch()
                         yield Label("Locations")
                         yield Select(
                             ((c, c) for c in albion_data.LOCATIONS),

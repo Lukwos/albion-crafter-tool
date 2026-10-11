@@ -23,3 +23,7 @@ Log {
     grid-size: 2;
     border: solid red;
 }
+
+Switch {
+    border: none;
+}
