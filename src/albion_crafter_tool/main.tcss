@@ -1,12 +1,12 @@
 Log {
-    border: solid green;
+    border: solid $primary;
 }
 
 #left_panel,#right_panel {
-    border: solid blue;
+    border: solid $primary;
     layout: grid;
     grid-size: 2;
-    height: auto;
+    height: 15;
 }
 
 #categories {
@@ -21,9 +21,9 @@ Log {
     height: 60;
     layout: grid;
     grid-size: 2;
-    border: solid red;
+    border: solid $primary;
 }
 
 Switch {
     border: none;
-}
+} 

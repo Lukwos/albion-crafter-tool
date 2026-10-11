@@ -7,13 +7,13 @@ from textual.containers import Container
 class RecipeWidget(Widget):
     DEFAULT_CSS = """
         RecipeWidget {
-            border: solid blue;
+            border: solid $primary;
         }
 
         #input_container {
             layout: grid;
             grid-size: 2;
-            border: solid yellow;
+            border: solid $secondary;
         }
         """
 

@@ -7,7 +7,7 @@ from textual.binding import Binding
 from textual.containers import Container, HorizontalGroup
 from textual.events import Print
 from textual.widgets import (
-    Switch,
+    Checkbox,
     DataTable,
     Footer,
     Header,
@@ -30,7 +30,7 @@ class AlbionCrafterToolApp(App):
     BINDINGS = [
         Binding("r", "update_recipes", "Update Recipes"),
         Binding("p", "update_prices", "Update Prices"),
-        Binding("a", "update_runs", "Update Prices"),
+        Binding("a", "update_runs", "Update Runs"),
     ]
 
     def compose(self) -> ComposeResult:
@@ -40,10 +40,8 @@ class AlbionCrafterToolApp(App):
             with TabPane("Setup"):
                 with HorizontalGroup():
                     with Container(id="left_panel"):
-                        yield Label("Have Premium")
-                        yield Switch(value=True)
-                        yield Label("Use Focus")
-                        yield Switch()
+                        yield Checkbox("Have Premium", value=True)
+                        yield Checkbox("Use Focus")
                         yield Label("Locations")
                         yield Select(
                             ((c, c) for c in albion_data.LOCATIONS),
@@ -132,6 +130,7 @@ class AlbionCrafterToolApp(App):
 
     def update_recipe_widgets(self):
         recipes_container = self.query_one("#recipes_container", Container)
+        recipes_container.recompose()
         for recipe in self.recipes:
             recipes_container.mount(RecipeWidget(recipe))
 
