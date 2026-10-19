@@ -15,58 +15,110 @@ rrr = bonus / (1 + bonus)
 station_rate = 300
 
 
-@functools.cache
-def compute_quantity_rrr(run, unit_qty):
-    base_qty = math.ceil(run * unit_qty * (1 - rrr))
-    return base_qty
-    base_run = 0
-    current_qty = base_qty
-    while current_qty > unit_qty:
-        nb_run = current_qty // unit_qty
-        used_qty = nb_run * unit_qty
-        unused_qty = current_qty % unit_qty
-        rrr_qty = math.floor(used_qty * rrr)
-        current_qty = unused_qty + rrr_qty
-        base_run += nb_run
-    if base_run == run - 1:
-        base_qty += unit_qty - current_qty
-        return base_qty + unit_qty - current_qty
-    raise Exception("Need to be refactor")
-
-
-def compute_recipe(recipe, prices, daily_sold):
-    # usage fee
+def compute_recipe(recipe, prices):
     item_xml_id = recipe["item_xml_id"]
-    item_value = recipe["item_value"]
+    item_value = recipe["item_value"] or 0
     amount_crafted = recipe["amount_crafted"]
-    run = (0.2 * daily_sold) // amount_crafted
+    runs = recipe.get("runs", 0)
     # unit_focus = compute_focus(item_xml_id, recipe["craftingfocus"])
     # unit_per_daily_focus = (10_000 // unit_focus) if unit_focus else 0
-    nutrition_consumed = item_value * 0.1125 * amount_crafted * run
+    nutrition_consumed = item_value * 0.1125 * amount_crafted * runs
     usage_fee = nutrition_consumed * station_rate / 100
+    missing_prices = False
     # input
     resource_cost = 0
     resource_sell = 0
+    total_sales_fee = 0
+    result = {"inputs": [], "outputs": [], "extras": [], "misc": []}
     for i in recipe["lines"]:
         price = aodp_data.get_price(i["item_xml_id"], prices)
+        if price == 0:
+            missing_prices = True
         cost_qty = (
-            run * i["count"]
-            if i["no_return"] or run == 0
-            else compute_quantity_rrr(run, i["count"])
+            runs * i["count"]
+            if i["no_return"] or runs == 0
+            else get_min_quantity(runs, i["count"], rrr)
         )
-        sell_qty = 0 if i["no_return"] or run == 0 else math.floor(i["count"] * rrr)
+        sell_qty = 0 if i["no_return"] or runs == 0 else math.floor(i["count"] * rrr)
+        sell_setup_fee = math.ceil(sell_qty * price * 0.025)
+        sell_sales_tax = math.ceil(sell_qty * price * 0.04)
+        result["inputs"].append(
+            {
+                "name": i["item_name"],
+                "quantity": cost_qty,
+                "price": price,
+                "total": cost_qty * price,
+                "setup_fee": 0,
+                "sales_tax": 0,
+            }
+        )
+        result["extras"].append(
+            {
+                "name": i["item_name"],
+                "quantity": sell_qty,
+                "price": price,
+                "total": sell_qty * price,
+                "setup_fee": sell_setup_fee,
+                "sales_tax": sell_sales_tax,
+            }
+        )
         resource_cost += cost_qty * price
         resource_sell += sell_qty * price
-        # TODO sell fee here per input
+        total_sales_fee += sell_setup_fee
+        total_sales_fee += sell_sales_tax
     # output
     output_price = aodp_data.get_price(item_xml_id, prices)
-    output_qty = amount_crafted * run
+    if output_price == 0:
+        missing_prices = True
+    output_qty = amount_crafted * runs
+    output_setup_fee = math.ceil(output_qty * output_price * 0.025)
+    output_sales_tax = math.ceil(output_qty * output_price * 0.04)
+    result["outputs"].append(
+        {
+            "name": recipe["item_name"],
+            "quantity": output_qty,
+            "price": output_price,
+            "total": output_qty * output_price,
+            "setup_fee": math.ceil(output_qty * output_price * 0.025),
+            "sales_tax": math.ceil(output_qty * output_price * 0.04),
+        }
+    )
+    total_sales_fee += output_setup_fee
+    total_sales_fee += output_sales_tax
     # summary
     income = resource_sell + output_price * output_qty
-    sales_fee = income * (2.5 + 4) / 100
-    expence = resource_cost + usage_fee + sales_fee
+    expence = resource_cost + usage_fee + total_sales_fee
     profit = income - expence
     roi = profit / expence * 100 if expence != 0 else 0
+    result["misc"] = {
+        "income": income,
+        "sales_fee": total_sales_fee,
+        "expence": expence,
+        "profit": profit,
+        "roi": roi,
+        "missing_prices": missing_prices,
+    }
+    return result
+
+
+@functools.cache
+def get_min_quantity(target_run, recipe_qty, rrr):
+    min_qty = math.floor(target_run * recipe_qty * (1 - rrr))
+    max_qty = target_run * recipe_qty
+    print(min_qty, max_qty)
+    for check_qty in range(min_qty, max_qty + 1):
+        all_run = 0
+        qty = check_qty
+        while qty >= recipe_qty:
+            run = qty // recipe_qty
+            used_qty = run * recipe_qty
+            ret_qty = math.floor(used_qty * rrr)
+            qty = qty - used_qty + ret_qty
+            all_run += run
+        if all_run == target_run:
+            print(check_qty)
+            return check_qty
+    raise Exception("Error in RRR computation")
 
 
 def compute_focus(item, base_focus):
