@@ -50,7 +50,6 @@ class AlbionCrafterToolApp(App):
     BINDINGS = [
         Binding("&", "update_recipes", "Update Recipes"),
         Binding("é", "update_prices", "Update Prices"),
-        Binding("p", "toggle_premium", "Toggle Premium"),
     ]
 
     def compose(self) -> ComposeResult:
@@ -63,6 +62,8 @@ class AlbionCrafterToolApp(App):
                 yield OptionList(id="category_list", compact=True)
                 yield Checkbox("Have Premium", value=True, id="have_premium")
                 yield Checkbox("Use Focus", id="use_focus")
+                yield Label("Focus")
+                yield Input(value="10000", id="focus_input", compact=True)
                 yield Label("Location")
                 yield Select(
                     ((c, c) for c in albion_data.LOCATIONS),
@@ -71,7 +72,7 @@ class AlbionCrafterToolApp(App):
                     compact=True,
                 )
                 yield Label("Craft Fee")
-                yield Input(value="300", id="craf_fees", compact=True)
+                yield Input(value="300", id="craft_fees", compact=True)
             with Container(id="missing_prices"):
                 yield DataTable(id="missing_prices_datatable")
             with Container(id="recipes"):
@@ -88,7 +89,7 @@ class AlbionCrafterToolApp(App):
         self.query_one("#recipes").border_title = "Recipes"
 
         self.query_one("#recipe_datatable", DataTable).add_columns(
-            "Name", "Runs", "Profit", "ROI"
+            "Name", "Runs", "Profit", "ROI", "Missing Prices"
         )
         self.query_one("#missing_prices_datatable", DataTable).add_columns(
             "Name", "Location"
@@ -120,18 +121,13 @@ class AlbionCrafterToolApp(App):
     def _update_recipe_datatable(self):
         recipe_datatable: DataTable = self.query_one("#recipe_datatable", DataTable)
         recipe_datatable.clear()
-        for recipe in filter(
-            lambda r: (
-                not r.get("result", {}).get("misc", {}).get("missing_prices", False)
-                and r.get("runs", None)
-            ),
-            self.recipes,
-        ):
+        for recipe in self.recipes:
             recipe_datatable.add_row(
                 recipe["item_name"],
                 recipe.get("runs", None),
                 recipe.get("result", {}).get("misc", {}).get("profit"),
                 recipe.get("result", {}).get("misc", {}).get("roi"),
+                recipe.get("result", {}).get("misc", {}).get("missing_prices"),
                 key=recipe["id"],
             )
 
@@ -139,8 +135,10 @@ class AlbionCrafterToolApp(App):
         self._update_prices()
 
     def _update_prices(self):
+        location = self.query_one("#location").value
         self.all_prices = aodp_data.get_prices(
-            ",".join(i["xml_id"] for i in self.all_items)
+            ",".join(i["xml_id"] for i in self.all_items),
+            locations=location,
         )
         self.price_history = aodp_data.get_price_history(
             ",".join(i["xml_id"] for i in self.all_items)
@@ -150,12 +148,22 @@ class AlbionCrafterToolApp(App):
 
     def _update_visual_missing_prices(self):
         datatable = self.query_one("#missing_prices_datatable", DataTable)
+        datatable.clear()
         missing_prices = aodp_data.get_missing_prices(self.all_prices)
         for item, location in missing_prices:
             datatable.add_row(item, location)
 
     def _update_recipes_result(self):
         for recipe in self.recipes:
+            focus_item_qty = albion_data.get_item_quantity_from_focus(
+                recipe["item_xml_id"], recipe["amount_crafted"], recipe["focus"], 10_000
+            )
+            daily_item_qty = aodp_data.get_item_quantity_from_daily_sold(
+                recipe["item_xml_id"],
+                self.price_history,
+                1.0,
+                self.query_one("#location").value,
+            )
             daily_sold = aodp_data.compute_daily_sold(
                 recipe["item_xml_id"], self.price_history
             )
@@ -164,7 +172,13 @@ class AlbionCrafterToolApp(App):
             )
             recipe["daily_sold"] = daily_sold
             recipe["runs"] = runs
-            recipe["result"] = compute.compute_recipe(recipe, self.all_prices)
+            recipe["result"] = compute.compute_recipe(
+                recipe,
+                self.all_prices,
+                int(self.query_one("#craft_fees").value),
+                self.query_one("#use_focus").value,
+                self.query_one("#have_premium").value,
+            )
         self.recipes = sorted(
             self.recipes, key=lambda r: r["result"]["misc"]["roi"], reverse=True
         )

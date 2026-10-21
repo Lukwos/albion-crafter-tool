@@ -1,4 +1,5 @@
 import requests
+import math
 
 BASE_URL = "https://europe.albion-online-data.com"
 
@@ -55,3 +56,11 @@ def compute_daily_sold(item, price_history, city="Lymhurst", quality=1):
         [],
     )
     return sum(d["item_count"] for d in data[-8:-1]) // 7
+
+
+def get_item_quantity_from_daily_sold(
+    item, price_history, percentage, city="Lymhurst", quality=1
+):
+    return math.floor(
+        compute_daily_sold(item, price_history, city, quality) * percentage
+    )
