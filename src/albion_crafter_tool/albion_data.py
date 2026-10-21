@@ -270,14 +270,15 @@ def get_item_quantity_from_focus(
     )
 
 
-def import_afm_specs_file():
+def import_afm_specs(text):
+    update = 0
     pattern = r" *(.*): (\d+) \/ \d+"
     cur.execute("UPDATE spec SET value = 0")
-    with open("data/export_specs_afm.txt", newline="") as file:
-        lines = file.read()
-        for name, value in re.findall(pattern, lines):
-            cur.execute("UPDATE spec SET value = ? WHERE name = ?", (value, name))
+    for name, value in re.findall(pattern, text):
+        cur.execute("UPDATE spec SET value = ? WHERE name = ?", (value, name))
+        update += 1
     con.commit()
+    return update
 
 
 def generate_database():
@@ -338,7 +339,7 @@ def generate_database():
             id INTEGER PRIMARY KEY,
             xml_id TEXT,
             name TEXT,
-            value INTEGER
+            value INTEGER DEFAULT 0
         )"""
     )
     cur.execute("DROP TABLE IF EXISTS bonus")
@@ -536,11 +537,10 @@ def generate_database():
 if __name__ == "__main__":
     if input("Type 'gen' to regen the database\n>") == "gen":
         generate_database()
-        import_afm_specs_file()
     # get_item("T6_POTION_ENERGY")
     # print(get_items_from_category("/consumables/potions/energy"))
     # print(search_category("energy"))
     # print(search_category("Hide"))
     # get_focus_bonus("T6_POTION_ENERGY")
     # print(compute_focus("T4_MAIN_SWORD", 1286))
-    print(get_item_quantity_from_focus("T4_MAIN_SWORD", 1286, 9000))
+    # print(get_item_quantity_from_focus("T4_MAIN_SWORD", 1, 1286, 9000))

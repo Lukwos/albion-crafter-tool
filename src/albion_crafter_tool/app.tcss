@@ -1,6 +1,5 @@
 #main {
     grid-size: 2 2;
-
     Container {
         border: solid $primary;
     }
@@ -10,34 +9,7 @@ Checkbox {
     border: none;
 }
 
-#left_panel,#right_panel {
+#modal {
+    margin: 5 10;
     border: solid $primary;
-    layout: grid;
-    grid-size: 2;
-    height: 15;
-}
-
-RecipeWidget {
-    layout: horizontal;
-    border: solid $primary;
-    height: auto;
-    Container {
-        layout: grid;
-        grid-size: 3;
-        border: solid $error;
-        height: auto;
-    }
-}
-
-RecipeDetailsModal {
-    align: center middle;
-    
-    Vertical{
-        width: 90%;
-        height: 90%;
-        Container {
-            border: solid $error;
-        }
-    }
-
 }

@@ -19,7 +19,7 @@ def compute_recipe(recipe, prices, station_rate, use_focus, have_premium):
     item_xml_id = recipe["item_xml_id"]
     item_value = recipe["item_value"] or 0
     amount_crafted = recipe["amount_crafted"]
-    runs = recipe.get("runs", 0)
+    runs = recipe.get("with", {}).get("runs", 0)
     rrr = get_rrr(use_focus, 0)
     # unit_focus = compute_focus(item_xml_id, recipe["craftingfocus"])
     # unit_per_daily_focus = (10_000 // unit_focus) if unit_focus else 0

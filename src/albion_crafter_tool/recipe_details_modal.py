@@ -15,7 +15,7 @@ class RecipeDetailsModal(ModalScreen):
         self.recipe = recipe
 
     def compose(self) -> ComposeResult:
-        with Vertical():
+        with Vertical(id="modal"):
             with Container(id="inputs"):
                 yield DataTable()
             with Container(id="extras"):
@@ -46,7 +46,7 @@ class RecipeDetailsModal(ModalScreen):
                 l["setup_fee"],
                 l["sales_tax"],
             )
-            for l in self.recipe["result"]["inputs"]
+            for l in self.recipe.get("result", {}).get("inputs", [])
         )
 
         extras = self.query_one("#extras", Container)
@@ -69,7 +69,7 @@ class RecipeDetailsModal(ModalScreen):
                 l["setup_fee"],
                 l["sales_tax"],
             )
-            for l in self.recipe["result"]["extras"]
+            for l in self.recipe.get("result", {}).get("extras", [])
         )
         outputs = self.query_one("#outputs", Container)
         outputs.border_title = "Outputs"
@@ -91,7 +91,7 @@ class RecipeDetailsModal(ModalScreen):
                 l["setup_fee"],
                 l["sales_tax"],
             )
-            for l in self.recipe["result"]["outputs"]
+            for l in self.recipe.get("result", {}).get("outputs", [])
         )
 
     def action_cancel(self):

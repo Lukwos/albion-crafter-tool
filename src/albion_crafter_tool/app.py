@@ -23,11 +23,15 @@ from textual.widgets import (
     TabbedContent,
     TabPane,
     OptionList,
+    TextArea,
 )
 from textual_autocomplete import AutoComplete
 from textual_autocomplete._autocomplete import DropdownItem, TargetState
 from textual.theme import Theme
 from textual.widgets.option_list import Option
+import math
+from import_specs_modal import ImportSpecsModal
+from add_category_modal import AddCategoryModal
 
 ALBION_THEME = Theme(
     name="albion-online",
@@ -48,20 +52,23 @@ class AlbionCrafterToolApp(App):
     CSS_PATH = "app.tcss"
 
     BINDINGS = [
-        Binding("&", "update_recipes", "Update Recipes"),
-        Binding("é", "update_prices", "Update Prices"),
+        Binding("ctrl+a", "update_recipes", "Update Recipes"),
+        Binding("ctrl+z", "update_prices", "Update Prices"),
+        Binding("ctrl+e", "import_specs", "Import Specs"),
+        Binding("a", "add_category", "Add Category"),
+        Binding("p", "toggle_premium", "Premium"),
+        Binding("f", "toggle_focus", "Focus"),
     ]
 
     def compose(self) -> ComposeResult:
         yield Header()
         with Grid(id="main"):
-            with Container():
-                yield Input(id="category_input", compact=True)
-                yield OptionList(compact=True, id="category_selection_list")
             with Container(id="setup"):
                 yield OptionList(id="category_list", compact=True)
-                yield Checkbox("Have Premium", value=True, id="have_premium")
-                yield Checkbox("Use Focus", id="use_focus")
+                yield Checkbox(
+                    "Have Premium", value=True, id="have_premium", disabled=True
+                )
+                yield Checkbox("Use Focus", id="use_focus", disabled=True)
                 yield Label("Focus")
                 yield Input(value="10000", id="focus_input", compact=True)
                 yield Label("Location")
@@ -100,17 +107,14 @@ class AlbionCrafterToolApp(App):
         self.all_prices = []
         self.price_history = []
         self.daily_sold_percentage = 1
+        self.premium = True
+        self.focus = False
 
     def candidates_callback(self, state: TargetState) -> list[DropdownItem]:
         if not state.text:
             return []
         matches = albion_data.search_category(state.text)[:10]
         return [DropdownItem(c["path"]) for c in matches]  # prefix=c["name"]
-
-    @on(Input.Submitted, "#category_input")
-    def on_category_input_submitted(self, event: Input.Submitted):
-        self.categories.add(event.value)
-        event.control.clear()
 
     def action_update_recipes(self):
         self.recipes, self.all_items = albion_data.compute_all_recipes_from_categories(
@@ -156,22 +160,30 @@ class AlbionCrafterToolApp(App):
     def _update_recipes_result(self):
         for recipe in self.recipes:
             focus_item_qty = albion_data.get_item_quantity_from_focus(
-                recipe["item_xml_id"], recipe["amount_crafted"], recipe["focus"], 10_000
-            )
-            daily_item_qty = aodp_data.get_item_quantity_from_daily_sold(
                 recipe["item_xml_id"],
-                self.price_history,
-                1.0,
-                self.query_one("#location").value,
+                recipe["amount_crafted"],
+                recipe["crafting_focus"],
+                10_000,
             )
             daily_sold = aodp_data.compute_daily_sold(
-                recipe["item_xml_id"], self.price_history
+                recipe["item_xml_id"],
+                self.price_history,
+                city=self.query_one("#location").value,
             )
-            runs = int(
-                (daily_sold * (self.daily_sold_percentage)) // recipe["amount_crafted"]
+            runs = min(
+                math.floor(
+                    (daily_sold * (self.daily_sold_percentage))
+                    // recipe["amount_crafted"]
+                ),
+                focus_item_qty // recipe["amount_crafted"],
             )
-            recipe["daily_sold"] = daily_sold
-            recipe["runs"] = runs
+            recipe["with"] = {
+                "focus_used": 10_000,
+                "focus_qty": focus_item_qty,
+                "daily_qty": daily_sold,
+                "daily_percentage": self.daily_sold_percentage,
+                "runs": runs,
+            }
             recipe["result"] = compute.compute_recipe(
                 recipe,
                 self.all_prices,
@@ -192,28 +204,28 @@ class AlbionCrafterToolApp(App):
     def on_missing_prices_cell_selected(self, event: DataTable.CellSelected):
         self.copy_to_clipboard(event.value)
 
-    @on(Input.Changed, "#category_input")
-    def on_input_changed(self, event: Input.Changed):
-        categories = (
-            albion_data.search_category(event.value)[:10] if event.value else []
-        )
-        option_list: OptionList = self.query_one("#category_selection_list", OptionList)
-        option_list.clear_options()
-        option_list.add_options(
-            Option(f"{c['name']} ({c['path']})", id=c["path"]) for c in categories
-        )
-
-    @on(OptionList.OptionSelected, "#category_selection_list")
-    def on_option_selected(self, event: OptionList.OptionSelected):
-        self.categories.add(event.option_id)
-        self.query_one("#category_input").clear()
-        self.query_one("#category_input").focus()
-        self._update_category_list()
-
     def _update_category_list(self):
         category_list = self.query_one("#category_list")
         category_list.clear_options()
         category_list.add_options(c for c in self.categories)
+
+    def action_import_specs(self):
+        self.push_screen(ImportSpecsModal())
+
+    def action_add_category(self):
+        self.push_screen(AddCategoryModal(), self.callback_add_category_modal)
+
+    def callback_add_category_modal(self, result):
+        self.categories.add(result)
+        self._update_category_list()
+
+    def action_toggle_premium(self):
+        self.premium = not self.premium
+        self.notify(f"Premium set to {self.premium}")
+
+    def action_toggle_focus(self):
+        self.focus = not self.focus
+        self.notify(f"Focus set to {self.focus}")
 
 
 app = AlbionCrafterToolApp()
