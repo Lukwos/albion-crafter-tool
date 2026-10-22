@@ -265,9 +265,8 @@ def compute_focus(item_xml_id, base_focus):
 def get_item_quantity_from_focus(
     item_xml_id, amount_crafted, base_focus, focus_quantity
 ):
-    return math.floor(
-        amount_crafted * focus_quantity / compute_focus(item_xml_id, base_focus)
-    )
+    unit_focus = compute_focus(item_xml_id, base_focus)
+    return math.floor(amount_crafted * focus_quantity / unit_focus) if unit_focus else 0
 
 
 def import_afm_specs(text):

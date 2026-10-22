@@ -63,8 +63,9 @@ class AlbionCrafterToolApp(App):
     def compose(self) -> ComposeResult:
         yield Header()
         with Grid(id="main"):
-            with Container(id="setup"):
+            with Container(id="category"):
                 yield OptionList(id="category_list", compact=True)
+            with Container(id="setup"):
                 yield Checkbox(
                     "Have Premium", value=True, id="have_premium", disabled=True
                 )
@@ -91,6 +92,7 @@ class AlbionCrafterToolApp(App):
         self.register_theme(ALBION_THEME)
         self.theme = "albion-online"
 
+        self.query_one("#category").border_title = "Categories"
         self.query_one("#setup").border_title = "Setup"
         self.query_one("#missing_prices").border_title = "Missing Prices"
         self.query_one("#recipes").border_title = "Recipes"
@@ -109,6 +111,7 @@ class AlbionCrafterToolApp(App):
         self.daily_sold_percentage = 1
         self.premium = True
         self.focus = False
+        self._update_category_list()
 
     def candidates_callback(self, state: TargetState) -> list[DropdownItem]:
         if not state.text:

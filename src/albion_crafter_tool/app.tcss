@@ -1,7 +1,11 @@
 #main {
-    grid-size: 2 2;
+    grid-size: 3 2;
     Container {
         border: solid $primary;
+    }
+
+    #recipes {
+        column-span: 3;
     }
 }
 
