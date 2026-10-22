@@ -32,6 +32,7 @@ from textual.widgets.option_list import Option
 import math
 from import_specs_modal import ImportSpecsModal
 from add_category_modal import AddCategoryModal
+import pyperclip
 
 ALBION_THEME = Theme(
     name="albion-online",
@@ -52,12 +53,9 @@ class AlbionCrafterToolApp(App):
     CSS_PATH = "app.tcss"
 
     BINDINGS = [
-        Binding("ctrl+a", "update_recipes", "Update Recipes"),
         Binding("ctrl+z", "update_prices", "Update Prices"),
         Binding("ctrl+e", "import_specs", "Import Specs"),
         Binding("a", "add_category", "Add Category"),
-        Binding("p", "toggle_premium", "Premium"),
-        Binding("f", "toggle_focus", "Focus"),
     ]
 
     def compose(self) -> ComposeResult:
@@ -66,10 +64,8 @@ class AlbionCrafterToolApp(App):
             with Container(id="category"):
                 yield OptionList(id="category_list", compact=True)
             with Container(id="setup"):
-                yield Checkbox(
-                    "Have Premium", value=True, id="have_premium", disabled=True
-                )
-                yield Checkbox("Use Focus", id="use_focus", disabled=True)
+                yield Checkbox("Have Premium", value=True, id="have_premium")
+                yield Checkbox("Use Focus", id="use_focus")
                 yield Label("Focus")
                 yield Input(value="10000", id="focus_input", compact=True)
                 yield Label("Location")
@@ -81,6 +77,8 @@ class AlbionCrafterToolApp(App):
                 )
                 yield Label("Craft Fee")
                 yield Input(value="300", id="craft_fees", compact=True)
+                yield Label("Daily Sold %")
+                yield Input(value="100", id="daily_sold_percentage", compact=True)
             with Container(id="missing_prices"):
                 yield DataTable(id="missing_prices_datatable")
             with Container(id="recipes"):
@@ -103,23 +101,16 @@ class AlbionCrafterToolApp(App):
         self.query_one("#missing_prices_datatable", DataTable).add_columns(
             "Name", "Location"
         )
+
         self.categories = set(["/consumables/potions/energy"])
         self.recipes = []
         self.all_items = set()
         self.all_prices = []
         self.price_history = []
-        self.daily_sold_percentage = 1
-        self.premium = True
-        self.focus = False
+
         self._update_category_list()
 
-    def candidates_callback(self, state: TargetState) -> list[DropdownItem]:
-        if not state.text:
-            return []
-        matches = albion_data.search_category(state.text)[:10]
-        return [DropdownItem(c["path"]) for c in matches]  # prefix=c["name"]
-
-    def action_update_recipes(self):
+    def _update_recipes(self):
         self.recipes, self.all_items = albion_data.compute_all_recipes_from_categories(
             self.categories
         )
@@ -157,11 +148,15 @@ class AlbionCrafterToolApp(App):
         datatable = self.query_one("#missing_prices_datatable", DataTable)
         datatable.clear()
         missing_prices = aodp_data.get_missing_prices(self.all_prices)
-        for item, location in missing_prices:
-            datatable.add_row(item, location)
+        for item_xml_id, location in missing_prices:
+            item = albion_data.get_item(item_xml_id)
+            datatable.add_row(item["name"], location)
 
     def _update_recipes_result(self):
         for recipe in self.recipes:
+            daily_sold_percentage = (
+                int(self.query_one("#daily_sold_percentage", Input).value) / 100
+            )
             focus_item_qty = albion_data.get_item_quantity_from_focus(
                 recipe["item_xml_id"],
                 recipe["amount_crafted"],
@@ -175,8 +170,7 @@ class AlbionCrafterToolApp(App):
             )
             runs = min(
                 math.floor(
-                    (daily_sold * (self.daily_sold_percentage))
-                    // recipe["amount_crafted"]
+                    (daily_sold * (daily_sold_percentage)) // recipe["amount_crafted"]
                 ),
                 focus_item_qty // recipe["amount_crafted"],
             )
@@ -184,7 +178,7 @@ class AlbionCrafterToolApp(App):
                 "focus_used": 10_000,
                 "focus_qty": focus_item_qty,
                 "daily_qty": daily_sold,
-                "daily_percentage": self.daily_sold_percentage,
+                "daily_percentage": daily_sold_percentage,
                 "runs": runs,
             }
             recipe["result"] = compute.compute_recipe(
@@ -205,12 +199,14 @@ class AlbionCrafterToolApp(App):
 
     @on(DataTable.CellSelected, "#missing_prices_datatable")
     def on_missing_prices_cell_selected(self, event: DataTable.CellSelected):
-        self.copy_to_clipboard(event.value)
+        pyperclip.copy(event.value)
+        self.notify(f"Copy '{event.value}' to clipboard")
 
     def _update_category_list(self):
         category_list = self.query_one("#category_list")
         category_list.clear_options()
-        category_list.add_options(c for c in self.categories)
+        category_list.add_options(Option(c, c) for c in self.categories)
+        self._update_recipes()
 
     def action_import_specs(self):
         self.push_screen(ImportSpecsModal())
@@ -222,13 +218,10 @@ class AlbionCrafterToolApp(App):
         self.categories.add(result)
         self._update_category_list()
 
-    def action_toggle_premium(self):
-        self.premium = not self.premium
-        self.notify(f"Premium set to {self.premium}")
-
-    def action_toggle_focus(self):
-        self.focus = not self.focus
-        self.notify(f"Focus set to {self.focus}")
+    @on(OptionList.OptionSelected, "#category_list")
+    def on_category_list_option_selected(self, event: OptionList.OptionSelected):
+        self.categories.remove(event.option_id)
+        self._update_category_list()
 
 
 app = AlbionCrafterToolApp()
