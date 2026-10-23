@@ -3,7 +3,7 @@ from textual.app import ComposeResult
 from textual.containers import Container, Vertical
 from textual.widgets import Label, Button, Pretty, Footer, DataTable, Header, TextArea
 from textual import on
-import albion_data
+from albion_crafter_tool import albion_data
 
 
 class ImportSpecsModal(ModalScreen):

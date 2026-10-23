@@ -3,7 +3,7 @@ from textual.app import ComposeResult
 from textual.containers import Container, Vertical
 from textual.widgets import TextArea, Input, OptionList
 from textual import on
-import albion_data
+from albion_crafter_tool import albion_data
 from textual.widgets.option_list import Option
 
 

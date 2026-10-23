@@ -1,38 +1,26 @@
-import albion_data
-import compute
-import aodp_data
-from recipe_details_modal import RecipeDetailsModal
-from textual.reactive import reactive
+import math
+
+import pyperclip
 from textual.app import App, ComposeResult, on
 from textual.binding import Binding
-from textual.containers import Container, HorizontalGroup, VerticalScroll, Grid
-from textual.events import Print
+from textual.containers import Container, Grid
+from textual.theme import Theme
 from textual.widgets import (
     Checkbox,
-    ListView,
-    ListItem,
     DataTable,
     Footer,
-    Header,
     Input,
     Label,
-    Log,
-    Pretty,
-    Select,
-    SelectionList,
-    TabbedContent,
-    TabPane,
     OptionList,
-    TextArea,
+    Select,
 )
-from textual_autocomplete import AutoComplete
-from textual_autocomplete._autocomplete import DropdownItem, TargetState
-from textual.theme import Theme
 from textual.widgets.option_list import Option
-import math
-from import_specs_modal import ImportSpecsModal
-from add_category_modal import AddCategoryModal
-import pyperclip
+
+from albion_crafter_tool import albion_data, aodp_data, compute
+from albion_crafter_tool.add_category_modal import AddCategoryModal
+from albion_crafter_tool.import_specs_modal import ImportSpecsModal
+from albion_crafter_tool.recipe_details_modal import RecipeDetailsModal
+from widgets.daily_bonus import DailyBonus
 
 ALBION_THEME = Theme(
     name="albion-online",
@@ -59,7 +47,6 @@ class AlbionCrafterToolApp(App):
     ]
 
     def compose(self) -> ComposeResult:
-        yield Header()
         with Grid(id="main"):
             with Container(id="category"):
                 yield OptionList(id="category_list", compact=True)
@@ -70,8 +57,7 @@ class AlbionCrafterToolApp(App):
                 yield Input(value="10000", id="focus_input", compact=True)
                 yield Label("Location")
                 yield Select(
-                    ((c, c) for c in albion_data.LOCATIONS),
-                    value="Lymhurst",
+                    ((c["name"], c["xml_id"]) for c in albion_data.get_locations()),
                     id="location",
                     compact=True,
                 )
@@ -79,6 +65,8 @@ class AlbionCrafterToolApp(App):
                 yield Input(value="300", id="craft_fees", compact=True)
                 yield Label("Daily Sold %")
                 yield Input(value="100", id="daily_sold_percentage", compact=True)
+                yield DataTable(id="bonuses")
+                yield DailyBonus()
             with Container(id="missing_prices"):
                 yield DataTable(id="missing_prices_datatable")
             with Container(id="recipes"):
@@ -101,6 +89,7 @@ class AlbionCrafterToolApp(App):
         self.query_one("#missing_prices_datatable", DataTable).add_columns(
             "Name", "Location"
         )
+        self.query_one("#bonuses", DataTable).add_columns("Name", "Value")
 
         self.categories = set(["/consumables/potions/energy"])
         self.recipes = []
@@ -222,6 +211,13 @@ class AlbionCrafterToolApp(App):
     def on_category_list_option_selected(self, event: OptionList.OptionSelected):
         self.categories.remove(event.option_id)
         self._update_category_list()
+
+    @on(Select.Changed, "#location")
+    def on_location_select_changed(self, event: Select.Changed):
+        table = self.query_one("#bonuses")
+        table.clear()
+        for bonus in compute.get_bonuses(event.value):
+            table.add_row(bonus["name"], bonus["value"])
 
 
 app = AlbionCrafterToolApp()

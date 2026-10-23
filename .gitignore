@@ -1,4 +1,4 @@
 ao-bin-dumps/
-data/
 .venv/
 *.pyc
+data.db

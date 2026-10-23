@@ -1,8 +1,24 @@
 import functools
 import math
 
-import aodp_data
-import albion_data
+from albion_crafter_tool import albion_data, aodp_data
+
+
+def get_bonuses(location_id):
+    # Event
+    bonuses = []
+    for event in albion_data.get_event_bonuses(
+        [e["UniqueName"] for e in aodp_data.get_daily_events()["Events"]]
+    ):
+        bonuses.append({"name": event["name"], "value": event["value"]})
+    location, location_bonuses = albion_data.get_location_bonuses(location_id)
+    bonuses.append({"name": "Crafting", "value": location["crafting_bonus"]})
+    bonuses.append({"name": "Refining", "value": location["refining_bonus"]})
+    for location_bonus in location_bonuses:
+        bonuses.append(
+            {"name": location_bonus["name"], "value": location_bonus["value"]}
+        )
+    return bonuses
 
 
 def get_rrr(focus, daily_bonus):
@@ -130,21 +146,3 @@ def compute_focus(item, base_focus):
     bonus = get_focus_bonus(item)
     focus_cost = base_focus * 0.5 ** (bonus / 10_000)
     return focus_cost
-
-
-# def get_focus_bonus(item):
-#     total_bonus = 0
-#     for templateachievement in achievements_root.findall(
-#         './/templateachievement[@missiontype="craftitemfame"]'
-#     ):
-#         for bonus in templateachievement.findall(
-#             './/bonus[@type="craftingfocuscostreduction"]'
-#         ):
-#             for itempattern in bonus.findall(".//itempattern"):
-#                 pattern = itempattern.attrib["pattern"]
-#                 if fnmatch.fnmatch(item, pattern):
-#                     name = templateachievement.attrib["id"]
-#                     # description = bonus.find("./description").attrib["tag"]
-#                     bonus_number = float(bonus.attrib["bonus"]) * 100
-#                     total_bonus += specs[name] * bonus_number
-#     return total_bonus

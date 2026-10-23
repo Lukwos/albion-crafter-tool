@@ -1,5 +1,4 @@
 import requests
-import math
 
 BASE_URL = "https://europe.albion-online-data.com"
 
@@ -56,3 +55,9 @@ def compute_daily_sold(item, price_history, city="Lymhurst", quality=1):
         [],
     )
     return sum(d["item_count"] for d in data[-8:-1]) // 7
+
+
+# Events
+def get_daily_events():
+    res = requests.get(BASE_URL + f"/api/v2/stats/festivities")
+    return res.json()
