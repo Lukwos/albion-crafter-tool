@@ -363,6 +363,27 @@ def generate_database():
             FOREIGN KEY(bonus_id) REFERENCES bonus(id)
         )"""
     )
+    cur.execute("DROP TABLE IF EXISTS location")
+    cur.execute(
+        """
+        CREATE TABLE location(
+            id INTEGER PRIMARY KEY,
+            name TEXT,
+            crafting_bonus INTEGER,
+            refining_bonus INTEGER
+        )"""
+    )
+    cur.execute("DROP TABLE IF EXISTS location_bonus")
+    cur.execute(
+        """
+        CREATE TABLE location_bonus(
+            id INTEGER PRIMARY KEY,
+            location_id INTEGER,
+            category TEXT,
+            value INTEGER,
+            FOREIGN KEY(location_id) REFERENCES location(id)
+        )"""
+    )
 
     # XML Data
     print("Get Data")
@@ -530,6 +551,31 @@ def generate_database():
                     (bonus_id, itempattern.attrib["pattern"]),
                 )
 
+    con.commit()
+
+    print("Location")
+    craftingmodifiers_tree = etree.parse("ao-bin-dumps/craftingmodifiers.xml")
+    world_europe_tree = etree.parse("ao-bin-dumps/cluster/world_europe.xml")
+
+    for craftinglocation in craftingmodifiers_tree.findall(".//craftinglocation"):
+        cluster_id = craftinglocation.attrib.get("cluster_id")
+        if cluster_id:
+            refiningbonus = craftinglocation.find("./refiningbonus").attrib["value"]
+            craftingbonus = craftinglocation.find("./craftingbonus").attrib["value"]
+            cluster = world_europe_tree.find(f'.//cluster[@id="{cluster_id}"]')
+            location_id = cur.execute(
+                "INSERT INTO location(name, crafting_bonus, refining_bonus) VALUES(?, ?, ?) RETURNING id",
+                (cluster.attrib["displayname"], refiningbonus, craftingbonus),
+            ).fetchone()["id"]
+            for craftingmodifier in craftinglocation.findall(".//craftingmodifier"):
+                cur.execute(
+                    "INSERT INTO location_bonus(location_id, category, bonus) VALUES(?, ?, ?)",
+                    (
+                        location_id,
+                        craftingmodifier.attrib["name"],
+                        craftingmodifier.attrib["value"],
+                    ),
+                )
     con.commit()
 
 
