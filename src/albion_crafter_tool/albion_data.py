@@ -56,7 +56,7 @@ def get_item(xml_id):
 def get_recipes_from_category(category_path):
     recipes = cur.execute(
         """
-        SELECT i.name as item_name, i.xml_id as item_xml_id, i.item_value as item_value, r.*
+        SELECT i.name as item_name, i.xml_id as item_xml_id, i.item_value, i.crafting_category, r.*
         FROM item i
         JOIN category c ON c.id = i.category_id
         JOIN recipe r ON r.item_id = i.id
@@ -150,7 +150,7 @@ def import_afm_specs(text):
 
 def get_event_bonuses(xml_ids):
     res = cur.execute(
-        f"SELECT b.*,c.name FROM event_bonus b JOIN category c ON c.xml_id = b.crafting_category WHERE b.xml_id IN ({','.join('?' for _ in xml_ids)}) GROUP BY b.crafting_category",
+        f"SELECT b.*,c.name FROM event_bonus b JOIN crafting_category c ON c.xml_id = b.crafting_category WHERE b.xml_id IN ({','.join('?' for _ in xml_ids)})",
         tuple(xml_ids),
     ).fetchall()
     return res
@@ -158,7 +158,7 @@ def get_event_bonuses(xml_ids):
 
 def get_location_bonuses(location_id):
     location = cur.execute(
-        "SELECT * FROM location WHERE xml_id = ?", (location_id,)
+        "SELECT * FROM location WHERE name = ?", (location_id,)
     ).fetchone()
     location_bonuses = cur.execute(
         "SELECT b.*,c.name FROM location_bonus b JOIN category c ON c.xml_id = b.crafting_category WHERE location_id = ? GROUP BY b.crafting_category",

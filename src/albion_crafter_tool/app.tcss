@@ -1,7 +1,7 @@
 #main {
     grid-size: 3 2;
     Container {
-        border: solid $primary;
+        border: round $primary;
     }
 
     #recipes {
@@ -15,5 +15,5 @@ Checkbox {
 
 #modal {
     margin: 5 10;
-    border: solid $primary;
+    border: round $primary;
 }

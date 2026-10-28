@@ -1,5 +1,6 @@
-from albion_data import con, cur
 from lxml import etree
+
+from albion_crafter_tool.albion_data import con, cur
 
 
 def init_translation(lang="EN-US"):
@@ -32,6 +33,14 @@ def generate_tables():
             path TEXT UNIQUE,
             parent_id INT,
             FOREIGN KEY(parent_id) REFERENCES category(id)
+        )"""
+    )
+    cur.execute("DROP TABLE IF EXISTS crafting_category")
+    cur.execute(
+        """CREATE TABLE crafting_category(
+            id INTEGER PRIMARY KEY,
+            xml_id TEXT,
+            name TEXT
         )"""
     )
     cur.execute("DROP TABLE IF EXISTS item")
@@ -198,7 +207,6 @@ def _get_xml_data(item, enchantment):
 
 def generate_items_and_recipes():
     # XML Data
-    print("Get Data")
     items_tree = etree.parse("ao-bin-dumps/items.xml")
 
     def generate_category(category, parent_id=None, parent_path="/"):
@@ -214,6 +222,7 @@ def generate_items_and_recipes():
         for subcategory in category:
             generate_category(subcategory, category_id, category_path + "/")
 
+    print("Categories")
     for category in items_tree.find(".//shopcategories"):
         generate_category(category)
 
@@ -233,6 +242,17 @@ def generate_items_and_recipes():
             item_data.append(idata)
             recipe_data[idata_key] = rdata
 
+    # Crafting Categorie SQL
+    for crafting_category in {
+        i["craftingcategory"] for i in item_data if i["craftingcategory"]
+    }:
+        category_name = get_translation(
+            "@MARKETPLACEGUI_ROLLOUT_SHOPSUBCATEGORY", crafting_category
+        ) or get_translation("@MARKETPLACEGUI_ROLLOUT_SHOPCATEGORY", crafting_category)
+        cur.execute(
+            "INSERT INTO crafting_category(xml_id, name) VALUES(?, ?)",
+            (crafting_category, category_name),
+        )
     # Item SQL
     print("Items")
     cur.executemany(

@@ -21,22 +21,29 @@ def get_bonuses(location_id):
     return bonuses
 
 
-def get_rrr(focus, daily_bonus):
-    base_bonus = 18
-    city_bonus = 0  # 15
-    # daily_bonus = 0  # 10 #20
-    focus_bonus = 59 if focus else 0
-    bonus = (base_bonus + city_bonus + daily_bonus + focus_bonus) / 100
+def get_rrr(crafting_category, use_focus):
+    base_bonus = 0.18
+    city_bonus = 0  # 0.15
+    daily_bonus = 0  # 0.10 #0.20
+    for event in albion_data.get_event_bonuses(
+        [e["UniqueName"] for e in aodp_data.get_daily_events()["Events"]]
+    ):
+        if crafting_category == event["crafting_category"]:
+            daily_bonus = event["value"]
+    focus_bonus = 0.59 if use_focus else 0
+    bonus = base_bonus + city_bonus + daily_bonus + focus_bonus
     rrr = bonus / (1 + bonus)
     return rrr
 
 
 def compute_recipe(recipe, prices, station_rate, use_focus, have_premium):
     item_xml_id = recipe["item_xml_id"]
+    crafting_category = recipe["crafting_category"]
     item_value = recipe["item_value"] or 0
     amount_crafted = recipe["amount_crafted"]
     runs = recipe.get("with", {}).get("runs", 0)
-    rrr = get_rrr(use_focus, 0)
+    rrr = get_rrr(crafting_category, use_focus)
+    recipe.get("with", {})["rrr"] = rrr
     # unit_focus = compute_focus(item_xml_id, recipe["craftingfocus"])
     # unit_per_daily_focus = (10_000 // unit_focus) if unit_focus else 0
     nutrition_consumed = item_value * 0.1125 * amount_crafted * runs
@@ -146,3 +153,57 @@ def compute_focus(item, base_focus):
     bonus = get_focus_bonus(item)
     focus_cost = base_focus * 0.5 ** (bonus / 10_000)
     return focus_cost
+
+
+if __name__ == "__main__":
+    # setup
+    location = "Lymhurst"
+    use_focus = False
+    focus_quantity = 10_000
+    daily_sold_percentage = 0.2
+    have_premium = True
+    station_rate = 300
+
+    # category => recipes + items used
+    all_recipes, all_items = albion_data.compute_all_recipes_from_categories(
+        ["/consumables/potions/energy"]
+    )
+    print(all_recipes[0])
+
+    # data from aodp (current prices, history)
+    prices = aodp_data.get_prices(
+        ",".join(i["xml_id"] for i in all_items),
+        locations=location,
+    )
+    price_history = aodp_data.get_price_history(
+        ",".join(i["xml_id"] for i in all_items), cities=location
+    )
+
+    # missing prices (output)
+    missing_prices = aodp_data.get_missing_prices(prices)
+    print(missing_prices)
+
+    # computation
+    # per recipe
+    recipe = all_recipes[0]
+    rrr = get_rrr(recipe["crafting_category"], use_focus)
+
+    # runs
+    focus_item_qty = albion_data.get_item_quantity_from_focus(
+        recipe["item_xml_id"],
+        recipe["amount_crafted"],
+        recipe["crafting_focus"],
+        focus_quantity,
+    )
+    daily_sold = aodp_data.compute_daily_sold(
+        recipe["item_xml_id"],
+        price_history,
+        city="Lymhurst",
+    )
+    runs = min(
+        math.floor((daily_sold * (daily_sold_percentage)) // recipe["amount_crafted"]),
+        focus_item_qty // recipe["amount_crafted"],
+    )
+    print(focus_item_qty, daily_sold, runs)
+
+    print(compute_recipe(recipe, prices, station_rate, use_focus, have_premium))

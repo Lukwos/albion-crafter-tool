@@ -20,7 +20,7 @@ from albion_crafter_tool import albion_data, aodp_data, compute
 from albion_crafter_tool.add_category_modal import AddCategoryModal
 from albion_crafter_tool.import_specs_modal import ImportSpecsModal
 from albion_crafter_tool.recipe_details_modal import RecipeDetailsModal
-from widgets.daily_bonus import DailyBonus
+from albion_crafter_tool.widgets.daily_bonus import DailyBonus
 
 ALBION_THEME = Theme(
     name="albion-online",
@@ -57,7 +57,7 @@ class AlbionCrafterToolApp(App):
                 yield Input(value="10000", id="focus_input", compact=True)
                 yield Label("Location")
                 yield Select(
-                    ((c["name"], c["xml_id"]) for c in albion_data.get_locations()),
+                    ((c["name"], c["name"]) for c in albion_data.get_locations()),
                     id="location",
                     compact=True,
                 )
@@ -123,12 +123,13 @@ class AlbionCrafterToolApp(App):
 
     def _update_prices(self):
         location = self.query_one("#location").value
+        self.notify(location)
         self.all_prices = aodp_data.get_prices(
             ",".join(i["xml_id"] for i in self.all_items),
             locations=location,
         )
         self.price_history = aodp_data.get_price_history(
-            ",".join(i["xml_id"] for i in self.all_items)
+            ",".join(i["xml_id"] for i in self.all_items), cities=location
         )
         self._update_visual_missing_prices()
         self._update_recipes_result()
@@ -220,6 +221,6 @@ class AlbionCrafterToolApp(App):
             table.add_row(bonus["name"], bonus["value"])
 
 
-app = AlbionCrafterToolApp()
-if __name__ == "__main__":
+def main():
+    app = AlbionCrafterToolApp()
     app.run()
